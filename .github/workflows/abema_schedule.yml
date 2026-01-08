@@ -1,0 +1,56 @@
+name: Abema Timeline
+
+on:
+  workflow_dispatch: # 允許手動執行測試
+  schedule:
+    # UTC 時間 15:01 = UTC+9 時間 00:01
+    - cron: '1 15 * * *'
+
+permissions:
+  contents: write # 需要寫入權限來更新 txt 檔案
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    # 設定時區為日本/東京，確保 datetime.date.today() 取到的是當地時間
+    env:
+      TZ: Asia/Tokyo
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pip install requests
+
+      - name: Run script
+        env:
+          BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN_FURRY }}
+          BOT_TOKEN_WM: ${{ secrets.TG_BOT_TOKEN_WM }}
+          CHAT_ID: ${{ secrets.TG_CHAT_ID_ABEMA }}
+          CHAT_ID_TEST: ${{ secrets.TG_CHAT_ID_TEST }}
+          TG_HOST: ${{ secrets.TG_HOST }}
+          UA: ${{ secrets.UA }}
+          ABEMA_3RD_API: ${{ secrets.ABEMA_3RD_API }}
+        run: |
+          python abema_timeline.py
+
+      - name: Commit and Push changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          # 檢查是否有檔案變動
+          if [[ -n $(git status -s abema_timeline.txt) ]]; then
+            git add abema_timeline.txt
+            git commit -m "[ABEMA] Auto update"
+            git push
+          else
+            echo "No changes to commit"
+          fi
